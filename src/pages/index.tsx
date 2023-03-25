@@ -6,6 +6,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 
 import { api, type RouterOutputs } from "~/utils/api";
 import Image from "next/image";
+import { LoadingSpinner } from "~/components/Loading";
 
 dayjs.extend(relativeTime);
 
@@ -60,16 +61,37 @@ const PostView = (props: PostWithUser) => {
   );
 };
 
-const Home: NextPage = () => {
-  const user = useUser();
-
+const Feed = () => {
   const { data, isLoading } = api.posts.getAll.useQuery(undefined, {
     retry: 0,
     refetchOnWindowFocus: false,
   });
 
-  if (isLoading) return <div>Loading...</div>;
+  if (isLoading) {
+    return (
+      <div className="mt-5 flex items-center justify-center">
+        <LoadingSpinner />
+      </div>
+    );
+  }
   if (!data) return <div>Something went wrong.</div>;
+
+  return (
+    <div className="flex flex-col">
+      {data.map((post) => (
+        <PostView key={post.post.id} post={post.post} author={post.author} />
+      ))}
+    </div>
+  );
+};
+
+const Home: NextPage = () => {
+  const { user, isLoaded: userLoaded } = useUser();
+
+  // Prefetch feed
+  api.posts.getAll.useQuery();
+
+  if (!userLoaded) return <div />;
 
   return (
     <>
@@ -81,23 +103,20 @@ const Home: NextPage = () => {
       <main className="flex h-screen justify-center ">
         <div className="w-full border-x border-slate-500 md:max-w-2xl">
           <div className="flex border-b border-slate-500 p-4">
-            {user.isSignedIn ? (
+            <div className="flex w-full items-center justify-between">
               <CreatePostWizard />
-            ) : (
-              <div className="flex justify-center">
-                <SignInButton />
-              </div>
-            )}
+              {user ? (
+                <div className="w-16 text-sm">
+                  <SignOutButton />
+                </div>
+              ) : (
+                <div className="w-16 text-sm">
+                  <SignInButton />
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex flex-col">
-            {data.map((post) => (
-              <PostView
-                key={post.post.id}
-                post={post.post}
-                author={post.author}
-              />
-            ))}
-          </div>
+          <Feed />
         </div>
       </main>
     </>
